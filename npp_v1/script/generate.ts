@@ -56,110 +56,87 @@ const getModal = (path: string) => {
   };
 };
 
-const genertateEntity = (res: any) => {
-  const enums = getModal('prisma/schema.prisma').enums;
-  if (res.length === 0) {
-    console.log('No model found');
-    return;
-  } else {
-    const setValidation = new Set();
-    let dto = '';
-    let createDto = '';
-    let updateDto = '';
-    let enumdata = '';
-    res?.forEach((item) => {
-      createDto += `export class Create${item.name}Dto extends OmitType(${item.name}Dto, [`;
-      updateDto = `export class Update${item.name}Dto extends PartialType(Create${item.name}Dto) {}`;
-      const isFormdata = item.isFormdata;
-      dto += `export class ${item.name}Dto {\n`;
-      item?.content?.forEach((ele) => {
-        if (!res?.some((item) => ele.type.includes(item.name))) {
-          dto += `@ApiProperty({required: ${ele.IsRequired} 
+const genertateEntity = (item: any, enums: string[], models: string[]) => {
+  const setValidation = new Set();
+  let dto = '';
+  let createDto = '';
+  let updateDto = '';
+  let enumdata = '';
+  createDto += `export class Create${item.name}Dto extends OmitType(${item.name}Dto, [`;
+  updateDto = `export class Update${item.name}Dto extends PartialType(Create${item.name}Dto) {}`;
+  const isFormdata = item.isFormdata;
+  dto += `export class ${item.name}Dto {\n`;
+  item?.content?.forEach((ele) => {
+    if (!models.includes(ele.type)) {
+      dto += `@ApiProperty({required: ${ele.IsRequired} 
             ${
               enums.includes(ele.type) ? `, type: 'enum', enum:${ele.type}` : ''
             }})\n`;
-          if (
-            !ele.IsRequired ||
-            ele.validation.some((dt) => dt.includes('file' || 'files'))
-          )
-            dto += `  @IsOptional()\n`;
-          if (
-            !(
-              (ele.isPrimary && !ele.IsRequired) ||
-              (ele.type === 'DateTime' && !ele.IsRequired)
-            )
-          ) {
-            if (
-              isFormdata &&
-              (config[ele.type]?.type !== 'string' ||
-                config[ele.type]?.type !== 'string[]') &&
-              !enums.includes(ele.type)
-            ) {
-              dto += `@Transform(({ value }) => safeParse(value))\n`;
-            }
-            for (let i = 0; i < config[ele.type]?.validation.length; i++) {
-              setValidation.add(config[ele.type]?.validation[i]);
-              dto += `${config[ele.type]?.validation[i]}\n`;
-            }
-            ele.validation
-              ?.map((ele) => ele?.trim())
-              ?.filter((ele) => /^\@[A-Z]\w+\(\w*\)$/.test(ele))
-              ?.forEach((ele) => {
-                setValidation.add(ele);
-                dto += `${ele}\n`;
-              });
-          } else {
-            createDto += `'${ele.name}', `;
-          }
-          if (enums.includes(ele.type)) {
-            enumdata += (enumdata && ', ') + ele.type;
-            dto += `@IsEnum(${ele.type})\n`;
-          }
-          dto += `  ${ele.name}: ${
-            config[ele.type]?.type ||
-            (enums.includes(ele.type) && ele.type) ||
-            'any'
-          };\n`;
+      if (
+        !ele.IsRequired ||
+        ele.validation.some((dt) => dt.includes('file' || 'files'))
+      )
+        dto += `  @IsOptional()\n`;
+      if (
+        !(
+          (ele.isPrimary && !ele.IsRequired) ||
+          (ele.type === 'DateTime' && !ele.IsRequired)
+        )
+      ) {
+        if (
+          isFormdata &&
+          config[ele.type]?.type !== 'string' &&
+          config[ele.type]?.type !== 'string[]' &&
+          !enums.includes(ele.type)
+        ) {
+          dto += `@Transform(({ value }) => safeParse(value))\n`;
         }
-      });
-      createDto += `]) {}\n`;
-      dto += '}';
+        for (let i = 0; i < config[ele.type]?.validation.length; i++) {
+          setValidation.add(config[ele.type]?.validation[i]);
+          dto += `${config[ele.type]?.validation[i]}\n`;
+        }
+        ele.validation
+          ?.map((ele) => ele?.trim())
+          ?.filter((ele) => /^\@[A-Z]\w+\(\w*\)$/.test(ele))
+          ?.forEach((ele) => {
+            setValidation.add(ele);
+            dto += `${ele}\n`;
+          });
+      } else {
+        createDto += `'${ele.name}', `;
+      }
+      if (enums.includes(ele.type)) {
+        enumdata += (enumdata && ', ') + ele.type;
+        dto += `@IsEnum(${ele.type})\n`;
+      }
+      dto += `  ${ele.name}: ${
+        config[ele.type]?.type ||
+        (enums.includes(ele.type) && ele.type) ||
+        'any'
+      };\n`;
+    }
+  });
 
-      fs.mkdirSync(`src/${item.name.toLowerCase()}`, { recursive: true });
-      fs.writeFileSync(
-        `src/${item.name.toLowerCase()}/entities.ts`,
-        `import {
-    ${[...setValidation].map((ele: string) => ele.match(/\w+/)[0]).join(',\n')}
-    ${item.content.some((cnt) => cnt.IsRequired) ? ', IsOptional' : ''}
-    ${enumdata && ',IsEnum'}
-   } from '@/utils/validation';\n
-    ${enumdata != '' && `import { ${enumdata} } from '@prisma/client';\n`}
-   import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';\n
-   
+  createDto += `]) {}\n`;
+  dto += '}';
+
+  return `import { ${[...setValidation]
+    .map((ele: string) => ele.match(/\w+/)[0])
+    .join(',\n')} ${
+    item.content.some((cnt) => cnt.IsRequired) ? ', IsOptional' : ''
+  }
+      ${enumdata && ',IsEnum'} } from '@/utils/validation';\n  ${
+    enumdata != '' && `import { ${enumdata} } from '@prisma/client';\n`
+  } import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';\n
     ${
       item.isFormdata
         ? "import { safeParse } from '@/utils/function';\n import { Transform } from 'class-transformer';\n"
         : '\n'
-    }` +
-          '\n' +
-          dto +
-          '\n\n' +
-          createDto +
-          '\n\n' +
-          updateDto,
-      );
-      setValidation.clear();
-      dto = '';
-      createDto = '';
-    });
-  }
+    }\n ${dto}\n\n ${createDto}\n\n ${updateDto} `;
 };
 
-const generateModule = (res: any) => {
-  let dt = '';
-
-  res?.forEach((ele) => {
-    dt = `import { Module } from '@nestjs/common';
+const generateModule = (ele: any) => {
+  const dt = `import { Module } from '@nestjs/common';
     import { PrismaModule } from '@/prisma.module';
     import { ${ele.name}Service } from './${ele.name.toLowerCase()}.service';
     import { ${
@@ -172,21 +149,14 @@ const generateModule = (res: any) => {
       imports: [PrismaModule],
     })
     export class ${ele.name}Module {}`;
-    fs.writeFileSync(
-      `src/${ele.name.toLowerCase()}/${ele.name.toLowerCase()}.module.ts`,
-      dt,
-    );
-    dt = '';
-  });
+  return dt;
 };
 
-const generateService = (res: any) => {
-  let dt = '';
-  res.forEach((ele) => {
-    const name = lowerFirst(ele.name);
-    const primaryKey =
-      ele?.content?.filter((ele) => ele.isPrimary)[0].name || 'id';
-    dt = `import { Injectable } from '@nestjs/common';
+const generateService = (ele: any) => {
+  const name = lowerFirst(ele.name);
+  const primaryKey =
+    ele?.content?.filter((ele) => ele.isPrimary)[0].name || 'id';
+  const dt = `import { Injectable } from '@nestjs/common';
     import { PrismaService } from 'src/prisma.service';
     import { Create${ele.name}Dto, Update${ele.name}Dto } from './entities';
     
@@ -229,24 +199,17 @@ const generateService = (res: any) => {
     }
   }
     `;
-    fs.writeFileSync(
-      `src/${name.toLowerCase()}/${name.toLowerCase()}.service.ts`,
-      dt,
-    );
-    dt = '';
-  });
+  return dt;
 };
 
-const generateController = (res: any) => {
-  let dt = '';
-  res.forEach((ele) => {
-    const filedFile = ele.content.find((dt) =>
-      dt.validation.some((dt) => dt.includes('file' || 'files')),
-    );
-    const name = lowerFirst(ele.name);
-    const primaryKey =
-      ele?.content?.filter((ele) => ele.isPrimary)[0].name || 'id';
-    dt = `
+const generateController = (ele: any) => {
+  const filedFile = ele.content.find((res) =>
+    res.validation.some((res) => res.includes('file' || 'files')),
+  );
+  const name = lowerFirst(ele.name);
+  const primaryKey =
+    ele?.content?.filter((ele) => ele.isPrimary)[0].name || 'id';
+  const dt = `
     import {
       Controller,
       Get,
@@ -269,8 +232,8 @@ const generateController = (res: any) => {
     }
     import { ${ele.name}Service } from './${name}.service';
     import { ${ele.name}Dto, Create${ele.name}Dto, Update${
-      ele.name
-    }Dto } from './entities';
+    ele.name
+  }Dto } from './entities';
     import { NotFoundInterceptor } from '@/common/interceptors/notFound.interceptor';
     import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
     
@@ -306,23 +269,25 @@ const generateController = (res: any) => {
           : ''
       }
       create(${
-        filedFile?.name ? '@UploadedFiles() files?,' : ''
+        filedFile?.name ? '@UploadedFiles() files,' : ''
       } @Body() data: Create${ele.name}Dto) {
-        ${
-          filedFile?.name
-            ? `try{\n ${
-                `if (files){` + filedFile?.validation.includes('file')
-                  ? `data['${filedFile?.name}'] = files.filename`
-                  : filedFile?.validation.includes('files')
-                  ? `data['${filedFile?.name}'] = files.map((file) => file.filename);`
-                  : ''
-              }}`
-            : ''
-        }
+      
+          ${
+            filedFile?.name
+              ? ` try{\n if (files){\n${
+                  filedFile?.validation.includes('file')
+                    ? `data['${filedFile?.name}'] = files.filename`
+                    : filedFile?.validation.includes('files')
+                    ? `data['${filedFile?.name}'] = files.map((file) => file.filename);\n}`
+                    : ''
+                }`
+              : ''
+          }
         return this.${name}Service.create(data);
         ${
           filedFile?.name
             ? `}\n catch(err){
+              if (files){\n
           ${
             filedFile?.validation.includes('file')
               ? `multerConfig.storage._removeFile(null, files['${filedFile?.name}'][0].filename, () => {});`
@@ -330,7 +295,7 @@ const generateController = (res: any) => {
               ? `files['${filedFile?.name}'].forEach((file) => {
                 multerConfig.storage._removeFile(null, file.filename, () => {});
                 });
-                `
+                \n}`
               : ''
           }
             throw err; }`
@@ -341,8 +306,8 @@ const generateController = (res: any) => {
       @ApiOkResponse({ type: ${ele.name}Dto })
       @Patch(':${primaryKey}')
       update(@Param('${primaryKey}', ParseIntPipe) ${primaryKey}: number, @Body() data: Update${
-      ele.name
-    }Dto) {
+    ele.name
+  }Dto) {
         return this.${name}Service.update(${primaryKey}, data);
       }
     
@@ -364,21 +329,42 @@ const generateController = (res: any) => {
       }
     }
     `;
-    fs.writeFileSync(
-      `src/${name.toLowerCase()}/${name.toLowerCase()}.controller.ts`,
-      dt,
-    );
-    dt = '';
-  });
+  return dt;
 };
 const main = () => {
   try {
-    const res = getModal('prisma/schema.prisma').res;
-    genertateEntity(res);
-    generateModule(res);
-    generateService(res);
-    generateController(res);
-    return;
+    const data = getModal('prisma/schema.prisma');
+    const res = data?.res || [];
+    const enums = data.enums;
+    const namesModal = res.map((item) => item.name);
+
+    res.forEach((item) => {
+      const entity = genertateEntity(item, enums, namesModal);
+      const module = generateModule(item);
+      const service = generateService(item);
+      const controller = generateController(item);
+
+      console.log(
+        'entity-----------------------\n',
+        entity,
+        '---------------------\n',
+      );
+      console.log(
+        'module-----------------------\n',
+        module,
+        '---------------------\n',
+      );
+      console.log(
+        'service-----------------------\n',
+        service,
+        '---------------------\n',
+      );
+      console.log(
+        'controller-----------------------\n',
+        controller,
+        '---------------------\n',
+      );
+    });
   } catch (error) {
     console.log(error);
   }

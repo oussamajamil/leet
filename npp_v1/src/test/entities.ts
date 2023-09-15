@@ -32,6 +32,9 @@ export class TestDto {
             })
   @IsOptional()
   updatedAt: Date;
+@ApiProperty({required: true 
+            })
+  User: any;
 }
 
 export class CreateTestDto extends OmitType(TestDto, ['id', 'createdAt', 'updatedAt', ]) {}
