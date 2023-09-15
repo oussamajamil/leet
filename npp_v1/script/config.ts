@@ -15,6 +15,14 @@ const config = {
     type: 'Date',
     validation: ['@IsDate()'],
   },
+  Json: {
+    type: 'any',
+    validation: [],
+  },
+  'String[]': {
+    type: 'string[]',
+    validation: ['@IsArray()'],
+  },
 };
 
 export default config;

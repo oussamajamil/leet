@@ -5,5 +5,6 @@ export interface content {
 
 export interface modal {
   title: string;
+  isFormdata: boolean;
   content: content[];
 }

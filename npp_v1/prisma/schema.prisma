@@ -1,31 +1,45 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("BACKEND_DATABASE_URL")
+}
+
+enum Role {
+    ADMIN
+    USER
+}
+
+enum Role2 {
+    ADMIN
+    USER
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique //@isEmail @db.VarChar(255)
-  ////test 1234
-  name      String?
-  password  String
-  createdAt DateTime @default(now())
-  testId    Int?
-  test      Test?    @relation(fields: [testId], references: [id])
-  updatedAt DateTime @updatedAt
+    userId     Int      @id @default(autoincrement())
+    email      String   @unique //@IsEmail()   @db.VarChar(255)
+    ////test 1234
+    name       String?
+    password   String
+    attributes Json     @default("{ }")
+    role       Role     @default(USER)
+    role2      Role2    @default(USER)
+    avatarUrl  String[] @default([]) //files
+    testId     Int?
+    test       Test?    @relation(fields: [testId], references: [id])
+}
+
+enum TestEnum {
+    ADMIN
+    USER
 }
 
 model Test {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  User      User[]
+    id        Int      @id @default(autoincrement())
+    name      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    User      User[]
 }
