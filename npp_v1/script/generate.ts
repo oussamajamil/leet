@@ -67,7 +67,7 @@ const genertateEntity = (item: any, enums: string[], models: string[]) => {
   const isFormdata = item.isFormdata;
   dto += `export class ${item.name}Dto {\n`;
   item?.content?.forEach((ele) => {
-    if (!models.includes(ele.type)) {
+    if (!models.includes(ele.type?.replace('[]', ''))) {
       dto += `@ApiProperty({required: ${ele.IsRequired} 
             ${
               enums.includes(ele.type) ? `, type: 'enum', enum:${ele.type}` : ''
@@ -119,14 +119,18 @@ const genertateEntity = (item: any, enums: string[], models: string[]) => {
 
   createDto += `]) {}\n`;
   dto += '}';
-
-  return `import { ${[...setValidation]
+  /// delete case IsString({ each: true }) in array in imports
+  const set2 = new Set();
+  setValidation.forEach((ele: string) => {
+    set2.add(ele.match(/\w+/)[0]);
+  });
+  return `import { ${[...set2]
     .map((ele: string) => ele.match(/\w+/)[0])
     .join(',\n')} ${
     item.content.some((cnt) => cnt.IsRequired) ? ', IsOptional' : ''
   }
       ${enumdata && ',IsEnum'} } from '@/utils/validation';\n  ${
-    enumdata != '' && `import { ${enumdata} } from '@prisma/client';\n`
+    enumdata != '' ? `import { ${enumdata} } from '@prisma/client';\n` : ''
   } import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';\n
     ${
       item.isFormdata
@@ -220,7 +224,11 @@ const generateController = (ele: any) => {
       Delete,
       ParseIntPipe,
       UseInterceptors,
-      ${filedFile?.name ? 'UploadedFiles,' : ''}
+      ${
+        filedFile?.name
+          ? `UploadedFile${filedFile?.validation.includes('files') ? 's' : ''},`
+          : ''
+      }
       Query,
     } from '@nestjs/common';
     ${
@@ -247,14 +255,11 @@ const generateController = (ele: any) => {
       findAll(@Query() query: any) {
         return this.${name}Service.findAll(query);
       }
-  
-
-      
       @UseInterceptors(NotFoundInterceptor) 
       @ApiOkResponse({ type: ${ele.name}Dto })
       @Get(':${primaryKey}')
       findOne(@Query() query: any, @Param('${primaryKey}', ParseIntPipe) ${primaryKey}: number) {
-        return this.${name}Service.findOne(+${primaryKey}, query);
+        return this.${name}Service.findOne(${primaryKey}, query);
       }
   
       @ApiCreatedResponse({ type: ${ele.name}Dto })
@@ -268,40 +273,48 @@ const generateController = (ele: any) => {
           multerConfig))`
           : ''
       }
-      create(${
-        filedFile?.name ? '@UploadedFiles() files,' : ''
-      } @Body() data: Create${ele.name}Dto) {
+      ${filedFile?.name ? 'async' : ''} create(${
+    filedFile?.name
+      ? `@UploadedFile${
+          filedFile?.validation.includes('files') ? 's' : ''
+        }() files,`
+      : ''
+  } @Body() data: Create${ele.name}Dto) {
       
           ${
             filedFile?.name
-              ? ` try{\n if (files){\n${
+              ? ` try{\n if (files)\n${
                   filedFile?.validation.includes('file')
                     ? `data['${filedFile?.name}'] = files.filename`
                     : filedFile?.validation.includes('files')
-                    ? `data['${filedFile?.name}'] = files.map((file) => file.filename);\n}`
+                    ? `data['${filedFile?.name}'] = files.map((file) => file.filename);\n`
                     : ''
                 }`
               : ''
           }
-        return this.${name}Service.create(data);
+        return  ${
+          filedFile?.name ? 'await' : ''
+        }  this.${name}Service.create(data);
         ${
           filedFile?.name
             ? `}\n catch(err){
               if (files){\n
           ${
             filedFile?.validation.includes('file')
-              ? `multerConfig.storage._removeFile(null, files['${filedFile?.name}'][0].filename, () => {});`
+              ? `multerConfig.storage._removeFile(null, files, () => {});`
               : filedFile?.validation.includes('files')
-              ? `files['${filedFile?.name}'].forEach((file) => {
-                multerConfig.storage._removeFile(null, file.filename, () => {});
+              ? `files.forEach((file) => {
+                multerConfig.storage._removeFile(null, file, () => {});
                 });
-                \n}`
+                `
               : ''
           }
-            throw err; }`
+            }
+            throw err;}`
             : ''
         }
       }
+   
    
       @ApiOkResponse({ type: ${ele.name}Dto })
       @Patch(':${primaryKey}')
@@ -331,6 +344,200 @@ const generateController = (ele: any) => {
     `;
   return dt;
 };
+
+const authGenerator = (auth: any, authModel: any) => {
+  const setValidationEmail = new Set();
+  const setValidationPassword = new Set();
+  const name = lowerFirst(auth.model);
+  // console.log('auth', auth, JSON.stringify(authModel, null, 2));
+
+  authModel.content.forEach((ele) => {
+    if (ele.name === auth.email || ele.name === auth.password) {
+      ele.validation
+        ?.filter((dt) => /^\@[A-Z]\w+\(\w*\)$/.test(dt))
+        ?.forEach((dt) => {
+          if (ele.name === auth.email) setValidationEmail.add(dt);
+          if (ele.name === auth.password) setValidationPassword.add(dt);
+        });
+    }
+  });
+  const entities = `
+    import { ApiProperty } from '@nestjs/swagger';
+    import {
+      ${[
+        ...setValidationEmail,
+        ...setValidationPassword,
+        ...config['String']?.validation,
+      ]
+        .map((ele: string) => ele.match(/\w+/)[0])
+        .join(',\n')}
+      } from '@/utils/validation';
+
+    export class LoginDto {
+      @ApiProperty({required: true})
+      ${[...setValidationEmail, config['String']?.validation]
+        .join('\n')
+        .replace(/,/g, '\n')}
+      ${auth.email}: string;
+      @ApiProperty({required: true})
+      ${[...setValidationPassword, config['String']?.validation]
+        .join('\n')
+        .replace(/,/g, '\n')}
+      ${auth.password}: string;
+    }
+    export class LogOutDto {
+      @ApiProperty({required: true})
+      token:string;
+      @ApiProperty({required: true})
+      refreshToken: string;
+    }
+    export class RefreshTokenDto {
+      @ApiProperty({required: true})
+      refreshToken: string;
+    }
+  `;
+  const service = `import { Injectable } from '@nestjs/common';
+  import { PrismaService } from 'src/prisma.service';
+  import { JwtService } from '@nestjs/jwt';
+  import * as bcrypt from 'bcryptjs';
+  import {LoginDto, LogOutDto, RefreshTokenDto} from './entities';
+
+  @Injectable()
+  export class AuthService {
+    constructor(
+      private prisma: PrismaService,
+      private jwtService: JwtService,
+    ) {}
+
+    async login(data: LoginDto) {
+      const user = await this.prisma.${name}.findFirst({
+        where: { ${auth.email}: data.${auth.email} },
+      });
+      if (!user) throw new Error('User not found');
+      const isMatch = await bcrypt.compare(data.${auth.password}, user.${auth.password});
+      if (!isMatch) throw new Error('Incorrect password');
+      const payload = {email: user.${auth.email}, role: user.role || 'user' };
+      return {
+        accessToken: this.jwtService.sign(payload),
+        refreshToken: this.jwtService.sign(payload, {
+          expiresIn: ${config['auth'].refreshTokenExpiration},
+        }),
+      };
+    }
+      async logout(data: LogOutDto) {
+      }
+      async refreshToken(data: RefreshTokenDto) {
+        // refresh token
+      }
+    }`;
+
+  const controller = `
+    import { Controller, Post, Body } from '@nestjs/common';
+    import { AuthService } from './auth.service';
+    import { LoginDto, LogOutDto, RefreshTokenDto } from './entities';
+    import { ApiTags } from '@nestjs/swagger';
+
+    @ApiTags('auth')
+    @Controller('auth')
+    export class AuthController {
+      constructor(private readonly authService: AuthService) {}
+
+      @Post('/login')
+      login(@Body() data: LoginDto) {
+        return this.authService.login(data);
+      }
+      @Post('/logout')
+      logout(@Body() data: LogOutDto) {
+        return this.authService.logout(data);
+      }
+      @Post('/refresh-token')
+      refreshToken(@Body() data: RefreshTokenDto) {
+        return this.authService.refreshToken(data);
+      }
+    }
+    `;
+
+  const module = `
+    import { Module } from '@nestjs/common';
+    import { PrismaModule } from '@/prisma.module';
+    import { AuthService } from './auth.service';
+    import { AuthController } from './auth.controller';
+    import { JwtModule } from '@nestjs/jwt';
+    import { PassportModule } from '@nestjs/passport';
+    import { JwtStrategy } from './jwt.strategy';
+
+    @Module({
+      imports: [
+        PrismaModule,
+        PassportModule,
+        JwtModule.register({
+          secret: process.env.JWT_SECRET,
+          signOptions: { expiresIn: ${config['auth'].tokenExpiration} },
+        }),
+      ],
+      controllers: [AuthController],
+      providers: [AuthService, JwtStrategy],
+    })
+    export class AuthModule {}
+    `;
+  fs.mkdirSync(`src/routes/auth`, {
+    recursive: true,
+  });
+  fs.writeFileSync(`src/routes/auth/entities.ts`, entities);
+  fs.writeFileSync(`src/routes/auth/auth.service.ts`, service);
+  fs.writeFileSync(`src/routes/auth/auth.controller.ts`, controller);
+  fs.writeFileSync(`src/routes/auth/auth.module.ts`, module);
+};
+
+const generateAllFiles = (item, enums, namesModal, flag) => {
+  if (flag === '-g') {
+    const entity = genertateEntity(item, enums, namesModal);
+    const module = generateModule(item);
+    const service = generateService(item);
+    const controller = generateController(item);
+    const appModule = getFile('src/app.module.ts');
+    fs.mkdirSync(`src/routes/${item.name.toLowerCase()}`, {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      `src/routes/${item.name.toLowerCase()}/entities.ts`,
+      entity,
+    );
+    fs.writeFileSync(
+      `src/routes/${item.name.toLowerCase()}/${item.name.toLowerCase()}.module.ts`,
+      module,
+    );
+    fs.writeFileSync(
+      `src/routes/${item.name.toLowerCase()}/${item.name.toLowerCase()}.service.ts`,
+      service,
+    );
+    fs.writeFileSync(
+      `src/routes/${item.name.toLowerCase()}/${item.name.toLowerCase()}.controller.ts`,
+      controller,
+    );
+    fs.writeFileSync(
+      'src/app.module.ts',
+      appModule.replace(
+        '\n' + '@Module({\n' + '  imports: [\n',
+        `\nimport {${
+          item.name
+        }Module}  from '@/routes/${item.name.toLowerCase()}/${item.name.toLowerCase()}.module';\n` +
+          '\n' +
+          '@Module({\n' +
+          '  imports: [\n' +
+          item.name +
+          'Module,' +
+          '\n',
+      ),
+    );
+  } else if (flag === '-u') {
+    const entity = genertateEntity(item, enums, namesModal);
+    fs.writeFileSync(
+      `src/routes/${item.name.toLowerCase()}/entities.ts`,
+      entity,
+    );
+  }
+};
 const main = () => {
   try {
     const data = getModal('prisma/schema.prisma');
@@ -338,33 +545,48 @@ const main = () => {
     const enums = data.enums;
     const namesModal = res.map((item) => item.name);
 
-    res.forEach((item) => {
-      const entity = genertateEntity(item, enums, namesModal);
-      const module = generateModule(item);
-      const service = generateService(item);
-      const controller = generateController(item);
-
-      console.log(
-        'entity-----------------------\n',
-        entity,
-        '---------------------\n',
-      );
-      console.log(
-        'module-----------------------\n',
-        module,
-        '---------------------\n',
-      );
-      console.log(
-        'service-----------------------\n',
-        service,
-        '---------------------\n',
-      );
-      console.log(
-        'controller-----------------------\n',
-        controller,
-        '---------------------\n',
-      );
-    });
+    console.log(process.argv);
+    if (process.argv[2] === '-g' && process.argv[3] === 'all') {
+      res.forEach((item) => {
+        try {
+          generateAllFiles(item, enums, namesModal, '-g');
+        } catch (err) {
+          console.log('error in create ');
+        }
+      });
+    } else if (process.argv[2] === '-g' && process.argv[3]) {
+      const item = res.find((item) => item.name === process.argv[3]);
+      if (item) {
+        generateAllFiles(item, enums, namesModal, '-g');
+      } else {
+        console.log('not found');
+      }
+    } else if (process.argv[2] === '-u' && process.argv[3] === 'all') {
+      res.forEach((item) => {
+        try {
+          generateAllFiles(item, enums, namesModal, '-u');
+        } catch (err) {
+          console.log('error in create ');
+        }
+      });
+    } else if (process.argv[2] === '-u' && process.argv[3]) {
+      const item = res.find((item) => item.name === process.argv[3]);
+      if (item) {
+        generateAllFiles(item, enums, namesModal, '-u');
+      } else {
+        console.log('not found');
+      }
+    }
+    // if (namesModal.includes(config['auth'].model)) {
+    //   const auth = config['auth'];
+    //   const authModel = res.find((item) => item.name === auth.model);
+    //   if (
+    //     authModel.content.some((item) => item.name === auth.email) &&
+    //     authModel.content.some((item) => item.name === auth.password)
+    //   ) {
+    //     authGenerator(auth, authModel);
+    //   }
+    // }
   } catch (error) {
     console.log(error);
   }

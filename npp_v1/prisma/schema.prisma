@@ -18,17 +18,17 @@ enum Role2 {
 }
 
 model User {
-    userId     Int      @id @default(autoincrement())
-    email      String   @unique //@IsEmail()   @db.VarChar(255)
-    ////test 1234
+    userId     Int     @id @default(autoincrement())
+    email      String  @unique //@IsEmail()   @db.VarChar(255)
+    //auth
     name       String?
     password   String
-    attributes Json     @default("{ }")
-    role       Role     @default(USER)
-    role2      Role2    @default(USER)
-    avatarUrl  String[] @default([]) //files
+    attributes Json    @default("{ }")
+    role       Role    @default(USER)
+    role2      Role2   @default(USER)
+    avatarUrl  String? //file
     testId     Int?
-    test       Test?    @relation(fields: [testId], references: [id])
+    test       Test?   @relation(fields: [testId], references: [id])
 }
 
 enum TestEnum {

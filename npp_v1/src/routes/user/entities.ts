@@ -1,25 +1,18 @@
-import {
-    IsString,
+import { IsString,
 MaxLength,
 MinLength,
 IsEmail,
-IsArray,
 IsNumber,
 IsNotEmpty,
-Min
-    , IsOptional
-    ,IsEnum
-   } from '@/utils/validation';
+Min , IsOptional
+      ,IsEnum } from '@/utils/validation';
+  import { Role, Role2 } from '@prisma/client';
+ import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
 
-    import { Role, Role2 } from '@prisma/client';
-
-   import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
-
-   
     import { safeParse } from '@/utils/function';
  import { Transform } from 'class-transformer';
 
-export class UserDto {
+ export class UserDto {
 @ApiProperty({required: false 
             })
   @IsOptional()
@@ -62,8 +55,10 @@ export class UserDto {
 @ApiProperty({required: false 
             })
   @IsOptional()
-@IsArray()
-  avatarUrl: string[];
+@IsString()
+@MaxLength(255)
+@MinLength(1)
+  avatarUrl: string;
 @ApiProperty({required: false 
             })
   @IsOptional()
@@ -74,7 +69,7 @@ export class UserDto {
   testId: number;
 }
 
-export class CreateUserDto extends OmitType(UserDto, ['userId', ]) {}
+ export class CreateUserDto extends OmitType(UserDto, ['userId', ]) {}
 
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {}
+ export class UpdateUserDto extends PartialType(CreateUserDto) {} 

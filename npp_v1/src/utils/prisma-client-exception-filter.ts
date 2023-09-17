@@ -14,11 +14,6 @@ import {
 import { Response } from 'express';
 
 @Catch()
-// PrismaClientValidationError ||
-//   PrismaClientKnownRequestError ||
-//   PrismaClientInitializationError ||
-//   PrismaClientRustPanicError ||
-//   PrismaClientUnknownRequestError,
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -30,6 +25,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (exception.code === 'P2002') {
         statusCode = 409;
         message = 'Duplicate key violation error ' + exception?.meta?.target;
+      }
+      if (exception.code === 'P2025') {
+        statusCode = 404;
+        message = exception?.meta?.cause || 'Record to delete does not exist.';
+      }
+      if (exception.code === 'P2016') {
+        statusCode = 404;
+        message = exception?.meta?.cause || 'Record to update does not exist.';
+      }
+      if (exception.code === 'P2017') {
+        statusCode = 400;
+        message = exception?.meta?.cause || 'Invalid relation.';
       }
     }
     if (exception instanceof PrismaClientValidationError) {

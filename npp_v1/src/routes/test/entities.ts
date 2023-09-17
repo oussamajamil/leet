@@ -1,19 +1,12 @@
-import {
-    IsString,
+import { IsString,
 MaxLength,
-MinLength
-    , IsOptional
-    ,IsEnum
-   } from '@/utils/validation';
-
-    import { Role, Role2 } from '@prisma/client';
-
+MinLength , IsOptional
+       } from '@/utils/validation';
    import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
 
-   
     
 
-export class TestDto {
+ export class TestDto {
 @ApiProperty({required: false 
             })
   @IsOptional()
@@ -32,12 +25,9 @@ export class TestDto {
             })
   @IsOptional()
   updatedAt: Date;
-@ApiProperty({required: true 
-            })
-  User: any;
 }
 
-export class CreateTestDto extends OmitType(TestDto, ['id', 'createdAt', 'updatedAt', ]) {}
+ export class CreateTestDto extends OmitType(TestDto, ['id', 'createdAt', 'updatedAt', ]) {}
 
 
-export class UpdateTestDto extends PartialType(CreateTestDto) {}
+ export class UpdateTestDto extends PartialType(CreateTestDto) {} 

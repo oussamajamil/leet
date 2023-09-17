@@ -21,7 +21,15 @@ const config = {
   },
   'String[]': {
     type: 'string[]',
-    validation: ['@IsArray()'],
+    validation: ['@IsArray()', '@IsString({ each: true })'],
+  },
+  auth: {
+    model: 'User',
+    email: 'email',
+    password: 'password',
+    tokenExpiration: 3600,
+    refreshTokenExpiration: 3600 * 24 * 30,
+    authMiddleware: ['Test'],
   },
 };
 

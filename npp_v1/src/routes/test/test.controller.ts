@@ -28,25 +28,23 @@
       findAll(@Query() query: any) {
         return this.testService.findAll(query);
       }
-  
-
-      
       @UseInterceptors(NotFoundInterceptor) 
       @ApiOkResponse({ type: TestDto })
       @Get(':id')
       findOne(@Query() query: any, @Param('id', ParseIntPipe) id: number) {
-        return this.testService.findOne(+id, query);
+        return this.testService.findOne(id, query);
       }
   
       @ApiCreatedResponse({ type: TestDto })
       @Post()
       
-      create( @Body() data: CreateTestDto) {
+       create( @Body() data: CreateTestDto) {
       
           
-        return this.testService.create(data);
+        return    this.testService.create(data);
         
       }
+   
    
       @ApiOkResponse({ type: TestDto })
       @Patch(':id')

@@ -6,23 +6,24 @@ import { APP_FILTER } from '@nestjs/core';
 import { join } from 'path';
 import { MulterModule } from '@nestjs/platform-express/multer';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { UserModule } from './user/user.module';
-import { HttpExceptionFilter } from './utils/exception-filter';
 import { PrismaModule } from './prisma.module';
 import { AllExceptionsFilter } from './utils/prisma-client-exception-filter';
+import { UserModule } from '@/routes/user/user.module';
+import { TestModule } from '@/routes/test/test.module';
 
 @Module({
   imports: [
+    TestModule,
+    UserModule,
     CacheModule.register(),
     MulterModule.register({
       dest: join(__dirname, '..', '..', 'uploads'),
     }),
-    // CacheModule.register(),
+    CacheModule.register(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'uploads'),
       serveRoot: '/uploads',
     }),
-    UserModule,
     PrismaModule,
   ],
   controllers: [AppController],
