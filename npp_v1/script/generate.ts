@@ -545,36 +545,28 @@ const main = () => {
     const enums = data.enums;
     const namesModal = res.map((item) => item.name);
 
-    console.log(process.argv);
-    if (process.argv[2] === '-g' && process.argv[3] === 'all') {
-      res.forEach((item) => {
-        try {
-          generateAllFiles(item, enums, namesModal, '-g');
-        } catch (err) {
-          console.log('error in create ');
+    if (process.argv[2] === '-g' || process.argv[2] === '-u') {
+      if (process.argv[3] === 'all') {
+        res.forEach((item) => {
+          try {
+            if (process.argv[2] === '-g')
+              generateAllFiles(item, enums, namesModal, '-g');
+            else if (process.argv[2] === '-u')
+              generateAllFiles(item, enums, namesModal, '-u');
+          } catch (err) {
+            console.log('error in create ');
+          }
+        });
+      } else if (process.argv[3]) {
+        const item = res.find((item) => item.name === process.argv[3]);
+        if (item) {
+          if (process.argv[2] === '-g')
+            generateAllFiles(item, enums, namesModal, '-g');
+          else if (process.argv[2] === '-u')
+            generateAllFiles(item, enums, namesModal, '-u');
+        } else {
+          console.log('not found');
         }
-      });
-    } else if (process.argv[2] === '-g' && process.argv[3]) {
-      const item = res.find((item) => item.name === process.argv[3]);
-      if (item) {
-        generateAllFiles(item, enums, namesModal, '-g');
-      } else {
-        console.log('not found');
-      }
-    } else if (process.argv[2] === '-u' && process.argv[3] === 'all') {
-      res.forEach((item) => {
-        try {
-          generateAllFiles(item, enums, namesModal, '-u');
-        } catch (err) {
-          console.log('error in create ');
-        }
-      });
-    } else if (process.argv[2] === '-u' && process.argv[3]) {
-      const item = res.find((item) => item.name === process.argv[3]);
-      if (item) {
-        generateAllFiles(item, enums, namesModal, '-u');
-      } else {
-        console.log('not found');
       }
     }
     // if (namesModal.includes(config['auth'].model)) {
