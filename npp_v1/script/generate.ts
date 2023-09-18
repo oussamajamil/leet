@@ -162,12 +162,14 @@ const generateService = (ele: any) => {
     ele?.content?.filter((ele) => ele.isPrimary)[0].name || 'id';
   const dt = `import { Injectable } from '@nestjs/common';
     import { PrismaService } from 'src/prisma.service';
+    import { ConvertQueries } from '@/utils/function';
     import { Create${ele.name}Dto, Update${ele.name}Dto } from './entities';
     
     @Injectable()
     export class ${ele.name}Service {
       constructor(private prisma: PrismaService) {}
     
+    @ConvertQueries()
     async findAll(options?: any) {
       const [totalResult, results] = await Promise.all([
         this.prisma.${name}.count({ where: options.where }),
@@ -176,6 +178,7 @@ const generateService = (ele: any) => {
         return { totalResult, results };
     }
     
+    @ConvertQueries()
     async findOne(${primaryKey}: number, query?: any) {
       return await this.prisma.${name}.findUnique({ where:{ ${primaryKey}},...query });
     }
@@ -569,16 +572,16 @@ const main = () => {
         }
       }
     }
-    // if (namesModal.includes(config['auth'].model)) {
-    //   const auth = config['auth'];
-    //   const authModel = res.find((item) => item.name === auth.model);
-    //   if (
-    //     authModel.content.some((item) => item.name === auth.email) &&
-    //     authModel.content.some((item) => item.name === auth.password)
-    //   ) {
-    //     authGenerator(auth, authModel);
-    //   }
-    // }
+    if (namesModal.includes(config['auth'].model)) {
+      const auth = config['auth'];
+      const authModel = res.find((item) => item.name === auth.model);
+      if (
+        authModel.content.some((item) => item.name === auth.email) &&
+        authModel.content.some((item) => item.name === auth.password)
+      ) {
+        authGenerator(auth, authModel);
+      }
+    }
   } catch (error) {
     console.log(error);
   }
