@@ -5,10 +5,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import {
-  PrismaClientInitializationError,
   PrismaClientKnownRequestError,
-  PrismaClientRustPanicError,
-  PrismaClientUnknownRequestError,
   PrismaClientValidationError,
 } from '@prisma/client/runtime/library';
 import { Response } from 'express';
@@ -18,8 +15,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    console.log(exception);
-    let statusCode = 400;
+    const request = ctx.getRequest<Request>();
+    let statusCode = exception.response.statusCode || 400;
     let message = exception?.response?.message || 'BAD REQUEST';
     if (exception instanceof PrismaClientKnownRequestError) {
       if (exception.code === 'P2002') {
@@ -46,6 +43,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(statusCode).json({
       statusCode: statusCode,
       message,
+      timestamp: new Date().toISOString(),
+      path: request.url,
     });
   }
 }

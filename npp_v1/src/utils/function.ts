@@ -17,7 +17,7 @@ export const safeParse = (value) => {
   }
 };
 
- const convertToObject = (str) => {
+const convertToObject = (str) => {
   if (!str) return true;
   const arr = str.split('.');
   if (arr.length === 1) return { [arr[0]]: true };
@@ -36,7 +36,6 @@ const queryToObj = (str) => {
   }
   return include;
 };
-
 
 export function ConvertQueries() {
   return function (target: any, key: string, descriptor: PropertyDescriptor) {
@@ -70,4 +69,3 @@ export function ConvertQueries() {
     }
   };
 }
-

@@ -10,7 +10,6 @@ const getModal = (path: string) => {
   const regex = new RegExp(/model\s+\w+\s*\{([\s\S]*?)\s+\}\s+/g);
   const data = getFile(path);
   const enums = data.match(/(?<=\s*enum\s+)\w+(?=\s*\{)/g);
-  console.log({ enums });
   const res = data?.match(regex).map((item) => {
     return {
       name: item.match(/model\s+(\w+)\s+\{/)[1],
@@ -19,21 +18,26 @@ const getModal = (path: string) => {
         .match(/\{([\s\S]*?)\s+\}\s+/)[1]
         ?.split('\n')
         .map((item) => item.trim())
-        ?.filter((item) => item !== '' && !item?.startsWith('//'))
+        ?.filter(
+          (item) =>
+            item !== '' && !item?.startsWith('//') && !item?.includes('@@'),
+        )
         ?.map((item) => {
           const [name, type, ...validation] = item.split(/\s+/);
           return {
             name,
             IsRequired:
-              !type.endsWith('?') &&
+              !type?.endsWith('?') &&
               !validation.some((ele) => ele?.includes('@default')) &&
               !validation.some((ele) => ele?.includes('@updatedAt')),
             isPrimary: validation.some((ele) => ele?.includes('@id')),
-            type: type.endsWith('?') ? type?.split('?')[0] : type,
+            type: type?.endsWith('?') ? type?.split('?')[0] : type,
             unique: validation?.some((ele) => ele?.includes('@unique')),
             validation: validation
               ?.filter(
                 (ele) =>
+                  !ele.includes('@@map') &&
+                  !ele.includes(' @@unique') &&
                   !ele?.includes('@default') &&
                   !ele?.includes('@unique') &&
                   !ele?.includes('@id') &&
@@ -66,6 +70,7 @@ const genertateEntity = (item: any, enums: string[], models: string[]) => {
   updateDto = `export class Update${item.name}Dto extends PartialType(Create${item.name}Dto) {}`;
   const isFormdata = item.isFormdata;
   dto += `export class ${item.name}Dto {\n`;
+  console.log('hello', { item });
   item?.content?.forEach((ele) => {
     if (!models.includes(ele.type?.replace('[]', ''))) {
       dto += `@ApiProperty({required: ${ele.IsRequired} 
@@ -352,7 +357,6 @@ const authGenerator = (auth: any, authModel: any) => {
   const setValidationEmail = new Set();
   const setValidationPassword = new Set();
   const name = lowerFirst(auth.model);
-  // console.log('auth', auth, JSON.stringify(authModel, null, 2));
 
   authModel.content.forEach((ele) => {
     if (ele.name === auth.email || ele.name === auth.password) {
@@ -547,7 +551,6 @@ const main = () => {
     const res = data?.res || [];
     const enums = data.enums;
     const namesModal = res.map((item) => item.name);
-
     if (process.argv[2] === '-g' || process.argv[2] === '-u') {
       if (process.argv[3] === 'all') {
         res.forEach((item) => {
